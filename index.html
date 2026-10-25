@@ -5,10 +5,10 @@
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
 --bg:#f6f7f9;--card:#fff;--ink:#16181d;--mut:#6b7280;--line:#e3e6ea;--acc:#2f4fd8;
---p:#16a34a;--pb:#dcfce7;--a:#dc2626;--ab:#fee2e2;--e:#d97706;--eb:#fef3c7}
+--p:#16a34a;--pb:#dcfce7;--a:#dc2626;--ab:#fee2e2;--e:#d97706;--eb:#fef3c7;--l:#2563eb;--lb:#dbeafe}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111317;--card:#1a1d23;--ink:#eceef2;--mut:#9aa1ad;--line:#2b2f37;--acc:#7b94ff;
---p:#4ade80;--pb:#12351f;--a:#f87171;--ab:#3d1a1a;--e:#fbbf24;--eb:#3a2c0b}}
-:root[data-theme="dark"]{--bg:#111317;--card:#1a1d23;--ink:#eceef2;--mut:#9aa1ad;--line:#2b2f37;--acc:#7b94ff;--p:#4ade80;--pb:#12351f;--a:#f87171;--ab:#3d1a1a;--e:#fbbf24;--eb:#3a2c0b}
+--p:#4ade80;--pb:#12351f;--a:#f87171;--ab:#3d1a1a;--e:#fbbf24;--eb:#3a2c0b;--l:#60a5fa;--lb:#12284a}}
+:root[data-theme="dark"]{--bg:#111317;--card:#1a1d23;--ink:#eceef2;--mut:#9aa1ad;--line:#2b2f37;--acc:#7b94ff;--p:#4ade80;--pb:#12351f;--a:#f87171;--ab:#3d1a1a;--e:#fbbf24;--eb:#3a2c0b;--l:#60a5fa;--lb:#12284a}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -38,6 +38,7 @@ button{touch-action:manipulation}
 .seg .P.on{background:var(--pb);color:var(--p);border-color:var(--p)}
 .seg .A.on{background:var(--ab);color:var(--a);border-color:var(--a)}
 .seg .E.on{background:var(--eb);color:var(--e);border-color:var(--e)}
+.seg .L.on{background:var(--lb);color:var(--l);border-color:var(--l)}
 .rem{flex:1 1 100%;padding:8px!important;font-size:13px!important}
 .foot{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px))}
 .foot div{max-width:860px;margin:0 auto;display:flex;gap:8px;flex-wrap:wrap}
@@ -46,7 +47,7 @@ button{touch-action:manipulation}
 @media(max-width:520px){.grid{grid-template-columns:1fr}}
 </style></head><body>
 <div class="wrap">
-<h1>Capitalmind GL Attendance</h1>
+<h1>Capitalmind GL Attendance <span class="pill" id="sync" style="font-size:12px;font-weight:400"></span></h1>
 <div class="card"><div class="grid">
 <div><label for="title">Event title</label><input type="text" id="title" placeholder="e.g. Guest Lecture: Capitalmind"></div>
 <div><label for="date">Date</label><input type="date" id="date"></div>
@@ -57,6 +58,7 @@ button{touch-action:manipulation}
 <input type="text" id="q" placeholder="Search student name (all sections)…">
 <button class="btn" id="allP">Mark all present</button>
 <button class="btn" id="clr">Clear section</button>
+<button class="btn" id="newEv">New event</button>
 </div>
 <div class="card" style="padding:0" id="list"></div>
 <div id="msg"></div>
@@ -68,33 +70,35 @@ button{touch-action:manipulation}
 <script>
 const DATA={"A":["Aakarsh Ahluwalia","Aardra Surendran","Abhinav Singh","Aditya Ramrao Chaval","Akshat Chouhan","Alisha Bara","Amritaparna Saha","Anish Kerketta","Anjali Dubey","Anushi Chhabra","Arjun Hans","Arnalisa Samanta","Aryan Baheti","Ashmeet Singh Chauhan","Avirat Bagde","Chinmayee Rajiv Topale","Denzel Keishing Tariang","Devadevan R Saji","Devika Sanjith","Era Singh Parmar","Gattupalli Manideep","Gautam Mahendrabhai Solanki","Guguloth Chandrashekar","Harshit Shrivastava","Heiryward Markey","Himanshu Tarachand Khandelwal","Indira Suhas Chavan","Jahanvi Goswami","Kabir Sheikh","Karan Rana","Kohina Kanaujia","Kudratpreet Kaur","Kumar Aaryan","Manan Brijesh Oza","Mansi","Medha S Tigga","Mohd Ibrahim","Mukund Khetan","Nikita Kant","Nishchay Agrawal","Parmar Nikhil Rajnikant","Piyush Gupta","Puru Mittal","Rao Dhwani Kalpeshsingh","Ribhoo Agarwal","Rishita Prasad","Saad Yunus Shaikh","Samrudhi Anil Powar","Shivani Ramakrishnan","Shruti Rajesh Bhutada","Shubh Shree","Shubham Kumar","Siddharth Nagda","Sitaram","Siya Rastogi","Srishti Deepak","Swaty Kumar","Tamanna","Tanmay Maheshwari","Vajar Prishita","Vansh Thacker","Vanshita Yadav","Zoya Aafreen"],"B":["Aanjaney Kapoor","Aditi Ruhela","Aditya Wazir","Akshit Garg","Alisha Shaw","Anant Mishra","Ananya Jain","Anjana Rao","Ankit Kumar","Ankit Kumar Singh","Arushi","Aryan Sethia","Avi Shrivastava","Ayush Agrawal","Ayushi Singh","Bhavya Bhawnani","Chhavi Panchal","Dhanalakshmi T","Diya Bansal","Gouri Nandana P","Hardik Jain","Hemant Garg","Hroodra Pratap Singh","Kaavyaa Gupta","Keshav Sahu","Krish Niraj Jain","Kunal Khanna","Laiba Ansari","Luv Sharma","Mainak Bera","Manasvi Bhana","Megavath Karthik","Megha Mondal","Mrugakshi Pawnikar","Mustafa Hunaidbhai Ankleshwaria","Ninad Sudhir Deshpande","Nisha","Nitin Somani","Pragya","Pranav Lalit","Rachit Jain","Rahul Sinha","Ritika Gupta","Rohit Agrawal","Sameer Raghuwanshi","Shailesh Garg","Shambhavi Gupta","Siddharth Grover","Siddhi Vinayak Vaidya","Simran Sahu","Somansha Singh","Somya Jeet","Sourav Ganguly","Spandan Parida","Tanaya Rajendra Chavan","Tanisha Kashyap","Thaneswari Nayak","Tushita Gautam","Utkarsh Singh","Vijaya Khede","Vinamra Arora","Yashasvi Kardam","Yashwant Kumar"],"C":["Aaryan Agarwal","Aditya Singh","Adrija Majumdar","Ananta Takle","Antariksh Choudhary","Anushreya Jeevanandam","Arjun Manoj","Aryan Ninad Kerkar","Asawari Anil Gajarmal","Astha Kumari","Ayush Bhuwania","Bhavya Barange","Bommana Varun Kumar Reddy","Chirag Verma","Deep Shikha","Dharavath Bharath Kumar","Dokula Dakshayani","Gourav Shekhawat","Himanshi","Ishaan Gera","Jaival Shukla","Khushi Yadav","Krishiv Mittal","Krupa Sukumar Nagdeote","Kushagra Bafna","Lokadas Pradeep Kumar","Manish Kumar Singh","Manjot Kaur","Manjusri R","Mehta Laxya Mitesh","Mohd Aahil Khan","Mrinali Roy","Muskan Priya","Mwngwnang Jamatia","Nandini Jain","Neha Kumari","Palak Sagar","Parth Jain","Pragya Rautkar","Pratham Goyal","Pratyush Jindal","Priyanka Thakur","Priyesh Pansari","Raj Nandani","Rajveer Jat","Riyansh Garg","Rupal","Sanidhya Srivastava","Shefali Jalwaniya","Shrivatsa Shivaram Hebbar","Shruti Nilesh Mehta","Shruti Singh","Simar Preet Singh","Sneha Yadav","Sonali Joshia","Sourav Singh","Tanisha Singh","Unnati Soni","Upadhyay Tirth Nileshkumar","Vishad Vaid","Yusuf Jameel Hashmi","Akshit Soni"],"D":["Aditya Kumar Arya","Aditya Prakash","Aditya Srivastava","Adyasha Nayak","Akruti Mishra","Ananya Manyal","Anmol Berry","Anusri A","Ashish Chaturvedi","Ayush Savarn","Bhuriya Ayushi Suresh","Devanshi Jadhav","Drishti Gupta","Dhruv Singh Sengar","Harsh Sharma","Harshit Rawat","Heba Fathima","Ishika Kaushik","Justin Masih","Kashmira Sudhir Bhekare","Kishan Narendrabhai Vanzara","Kriti Ranjan","Kshitij Verma","Lakshay Garg","Manasi Rajendra Chavan","Mannat Yadav","Mayank Goredwal","Mridul Gulati","Mudit Sharma","Naman Gautam","Niranjana Ranjith","Padam Sancheti","Pallavi Priya","Parameshwar Hembram","Parth Lahoti","Prashasti Singh","Priyanshu Tawniya","Rohan Krishna","Sagar Singh","Sakinala Rechita Nityashree","Sanket Dinkar Borle","Sarthak Bhasin","Shikha Mariam John","Shikher Gattani","Shivam Kumar Pandey","Shruti Kumari","Shubh Agarwal","Shubham Garg","Sneha Jindal","Snehil Singh","Snigdha Chouhan","Srajal Khandelwal","Sonalika Saloni","Soumith Ponna","Tejashri Deepak Ghatol","Vaidatrayee Y. Sharan","Vibeka Anand","Vishakha Kumar","Vishwanath Vedanth","Yakshat Jain","Yug Koria","Somineni Sharath Chandra"],"E":["Abhimanyu Rajeev Menon","Aditya Anil Patil","Aditya Kumar","Agamjot Singh","Aiswaria Babu","Alfas Nidal Nk","Ananya Mohapatra","Animesh Mahajan","Anjali Wasudeo Thaokar","Ankit Bordoloi","Apurva Roy","Archita Sharma","Arjun Gaikwad","Aryan Soni","Ashish Mathew Kurian","Avinash Mishra","Bharat Aggarwal","Bhavya Shivare","Bhukya Karthik","Charul Sahu","Denis Toppo","Divyansh Sahu","Ekta","Golla Shivani","Harshvardhan Singh","Ishika Gupta","Jagruti Sidar","Kabir Sethi","Krishna Gupta","Lional Mahendra Raja Raja","Lokesh Meena","Manjari Gupta","Mayank Maheshwari","Misha Mayank Agrawal","Mudit Mohan","Nar Parv Nileshbhai","Navya","Paramjeet","Parmar Devanshi Nimit","Parveen","Prajapati Purv Jayendrakumar","Preeti Kumari","Purab Shah","Rasi T","Ravi Kumar Chaula","Saksham Jain","Salony","Satvik Rawat","Satyam Saxena","Shasha Ingole","Shivani","Shivansh Singh Parihar","Shreya Ingole","Shruti Prasad","Sivajothi S","Sneha Babasaheb Landage","Soham Mehta","Soumya Kumari","Sukhraj Singh Bhalla","Tanishka Joshi","Thakor Rajveer Kuldipbhai","Vaisheshika Chandra","Vansh Bhatia","Yashraj Kumar"]};
 const SECS=Object.keys(DATA);
-const LBL={P:"Present",A:"Absent",E:"Exception"};
+const LBL={P:"Present",A:"Absent",L:"Late",E:"Exception"};
+const FB="https://attendance-section-default-rtdb.asia-southeast1.firebasedatabase.app/"; // PASTE YOUR FIREBASE REALTIME DATABASE URL HERE (see setup steps)
+const base=FB.replace(/\/+$/,""),live=!!base;
 let cur=SECS[0],st={};
-SECS.forEach(s=>DATA[s].forEach((n,i)=>st[s+i]={v:"",r:""}));
+const blank=()=>({v:"",r:""}),today=()=>new Date().toISOString().slice(0,10);
+const reset=()=>SECS.forEach(s=>DATA[s].forEach((n,i)=>st[s+i]=blank()));
+reset();
 const $=id=>document.getElementById(id);
-try{const x=JSON.parse(localStorage.getItem("gl-att")||"null");if(x){st=Object.assign(st,x.st||{});$("title").value=x.t||"";$("date").value=x.d||""}}catch(e){}
-if(!$("date").value)$("date").value=new Date().toISOString().slice(0,10);
+if(!live)try{const x=JSON.parse(localStorage.getItem("gl-att")||"null");if(x){st=Object.assign(st,x.st||{});$("title").value=x.t||"";$("date").value=x.d||""}}catch(e){}
+if(!$("date").value)$("date").value=today();
 let svT;function save(){clearTimeout(svT);svT=setTimeout(()=>{try{localStorage.setItem("gl-att",JSON.stringify({st,t:$("title").value,d:$("date").value}))}catch(e){}},300)}
 let xp;function loadX(){return xp||(xp=new Promise((ok,no)=>{if(window.XLSX)return ok();const sc=document.createElement("script");sc.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";sc.onload=ok;sc.onerror=()=>{xp=null;no()};document.head.appendChild(sc)}))}
 setTimeout(()=>loadX().catch(()=>{}),2000);
-const cnt=s=>{const c={P:0,A:0,E:0,U:0};DATA[s].forEach((n,i)=>{c[st[s+i].v||"U"]++});return c};
+const cnt=s=>{const c={P:0,A:0,L:0,E:0,U:0};DATA[s].forEach((n,i)=>{c[st[s+i].v||"U"]++});return c};
 function tabs(){$("tabs").innerHTML=SECS.map(s=>{const c=cnt(s);return `<button class="tab ${s==cur?"on":""}" data-s="${s}">Section ${s}<small>${DATA[s].length-c.U}/${DATA[s].length} marked</small></button>`}).join("");
-const c=cnt(cur);$("stats").innerHTML=`<span class="pill">Present ${c.P}</span><span class="pill">Absent ${c.A}</span><span class="pill">Exception ${c.E}</span><span class="pill">Unmarked ${c.U}</span>`;
+const c=cnt(cur);$("stats").innerHTML=`<span class="pill">Present ${c.P}</span><span class="pill">Absent ${c.A}</span><span class="pill">Late ${c.L}</span><span class="pill">Exception ${c.E}</span><span class="pill">Unmarked ${c.U}</span>`;
 $("dlOne").textContent=`Download Section ${cur} only`}
 function list(){const q=$("q").value.trim().toLowerCase();
 const it=[];(q?SECS:[cur]).forEach(c=>DATA[c].forEach((n,i)=>{if(!q||n.toLowerCase().includes(q))it.push({c,n,i})}));
 $("list").innerHTML=it.map(({c,n,i})=>{const k=c+i,s=st[k];
-return `<div class="row"><div class="nm"><span>${q?"Sec "+c:i+1}</span>${n}</div><div class="seg">${["P","A","E"].map(x=>`<button class="${x} ${s.v==x?"on":""}" data-k="${k}" data-v="${x}">${LBL[x]}</button>`).join("")}</div>${s.v=="E"?`<input type="text" class="rem" data-k="${k}" placeholder="Reason for exception" value="${s.r.replace(/"/g,"&quot;")}">`:""}</div>`}).join("")||`<div class="row">No match.</div>`}
+return `<div class="row"><div class="nm"><span>${q?"Sec "+c:i+1}</span>${n}</div><div class="seg">${["P","A","L","E"].map(x=>`<button class="${x} ${s.v==x?"on":""}" data-k="${k}" data-v="${x}">${LBL[x]}</button>`).join("")}</div>${s.v=="E"?`<input type="text" class="rem" data-k="${k}" placeholder="Reason for exception" value="${s.r.replace(/"/g,"&quot;")}">`:""}</div>`}).join("")||`<div class="row">No match.</div>`}
 function all(){tabs();list()}
 $("tabs").onclick=e=>{const b=e.target.closest(".tab");if(b){cur=b.dataset.s;all()}};
-$("list").onclick=e=>{const b=e.target.closest("button");if(!b)return;const s=st[b.dataset.k];s.v=s.v==b.dataset.v?"":b.dataset.v;if(s.v!="E")s.r="";save();
-const row=b.closest(".row");row.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x.dataset.v==s.v));
-let r=row.querySelector(".rem");if(s.v=="E"&&!r){r=document.createElement("input");r.type="text";r.className="rem";r.dataset.k=b.dataset.k;r.placeholder="Reason for exception";row.appendChild(r)}else if(s.v!="E"&&r)r.remove();
-tabs()};
-$("list").oninput=e=>{if(e.target.classList.contains("rem")){st[e.target.dataset.k].r=e.target.value;save()}};
-let qT;$("q").oninput=()=>{clearTimeout(qT);qT=setTimeout(list,120)};$("title").oninput=$("date").oninput=save;
-$("allP").onclick=()=>{DATA[cur].forEach((n,i)=>{if(!st[cur+i].v)st[cur+i].v="P"});save();all()};
-$("clr").onclick=()=>{if(confirm(`Clear all marks in Section ${cur}?`)){DATA[cur].forEach((n,i)=>st[cur+i]={v:"",r:""});save();all()}};
+$("list").onclick=e=>{const b=e.target.closest("button");if(!b)return;const k=b.dataset.k,s=st[k];s.v=s.v==b.dataset.v?"":b.dataset.v;if(s.v!="E")s.r="";patchRow(k);tabs();push(k)};
+$("list").oninput=e=>{if(e.target.classList.contains("rem")){const k=e.target.dataset.k;st[k].r=e.target.value;clearTimeout(rt[k]);rt[k]=setTimeout(()=>live?send("att/"+k+"/r",st[k].r):save(),400)}};
+let qT;$("q").oninput=()=>{clearTimeout(qT);qT=setTimeout(list,120)};$("title").oninput=()=>metaOut("title");$("date").oninput=()=>metaOut("date");
+$("allP").onclick=()=>{const o={};DATA[cur].forEach((n,i)=>{if(!st[cur+i].v)o[cur+i]={v:"P",r:""}});setMany(o)};
+$("clr").onclick=()=>{if(confirm(`Clear all marks in Section ${cur}${live?" for everyone":""}?`)){const o={};DATA[cur].forEach((n,i)=>o[cur+i]=blank());setMany(o)}};
+$("newEv").onclick=()=>{if(confirm("Start a new event? This clears ALL marks in ALL sections"+(live?" for everyone":"")+". Download the current attendance first.")){reset();$("title").value="";$("date").value=today();all();if(live)send("",{meta:{title:"",date:today()}});else save()}};
 function sheet(s){const t=$("title").value||"",d=$("date").value||"";
 const rows=[["Student Name","Section","Event","Date","Attendance","Remark"]];
 DATA[s].forEach((n,i)=>{const x=st[s+i];rows.push([n,s,t,d,LBL[x.v]||"",x.r])});
@@ -104,7 +108,7 @@ const m=$("msg");m.textContent="Preparing file…";try{await loadX()}catch(e){m.
 let dl=null;try{dl=(typeof claude!=="undefined")?await claude.use("downloads"):null}catch(e){}
 if(!dl)dl={save:async({filename,data})=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([data],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}));a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}};
 const wb=XLSX.utils.book_new();
-if(secs.length>1){const sm=[["Section","Total","Present","Absent","Exception","Unmarked"]];secs.forEach(s=>{const c=cnt(s);sm.push([s,DATA[s].length,c.P,c.A,c.E,c.U])});XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sm),"Summary")}
+if(secs.length>1){const sm=[["Section","Total","Present","Absent","Late","Exception","Unmarked"]];secs.forEach(s=>{const c=cnt(s);sm.push([s,DATA[s].length,c.P,c.A,c.L,c.E,c.U])});XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sm),"Summary")}
 secs.forEach(s=>XLSX.utils.book_append_sheet(wb,sheet(s),"Section "+s));
 const buf=XLSX.write(wb,{type:"array",bookType:"xlsx"});
 const ev=($("title").value||"Attendance").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"_")||"Attendance";
@@ -112,5 +116,27 @@ try{await dl.save({filename:`${ev}_${$("date").value}_${name}.xlsx`,data:buf});m
 catch(e){m.textContent=e&&e.code=="declined"?"Download cancelled.":"Couldn’t save the file ("+(e&&e.code||"error")+")."}}
 $("dlAll").onclick=()=>out(SECS,"All_Sections");
 $("dlOne").onclick=()=>out([cur],"Section_"+cur);
+const rt={};
+function setSync(ok,t){const e=$("sync");e.textContent=!live?"Local only":ok?"● Live":(t||"Reconnecting…");e.style.color=!live?"var(--mut)":ok?"var(--p)":"var(--a)"}
+function send(path,body,method){if(!live)return;fetch(`${base}/live${path?"/"+path:""}.json`,{method:method||"PUT",body:JSON.stringify(body)}).then(r=>{if(!r.ok)throw 0;setSync(true)}).catch(()=>setSync(false,"Couldn’t save – check connection"))}
+function push(k){live?send("att/"+k,st[k]):save()}
+function setMany(o){for(const k in o)st[k]=o[k];list();tabs();live?send("att",o,"PATCH"):save()}
+function metaOut(f){if(live){clearTimeout(rt["m"+f]);rt["m"+f]=setTimeout(()=>send("meta/"+f,$(f).value),400)}else save()}
+function patchRow(k){const b=$("list").querySelector(`button[data-k="${k}"]`);if(!b)return;const row=b.closest(".row"),s=st[k];
+row.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x.dataset.v==s.v));
+let r=row.querySelector(".rem");
+if(s.v=="E"&&!r){r=document.createElement("input");r.type="text";r.className="rem";r.dataset.k=k;r.placeholder="Reason for exception";row.appendChild(r)}else if(s.v!="E"&&r)r.remove();
+if(r&&document.activeElement!==r)r.value=s.r}
+function meta(m,full){m=m||{};if(document.activeElement!==$("title")&&("title" in m||full))$("title").value=m.title||"";if(document.activeElement!==$("date")&&("date" in m||full))$("date").value=m.date||today()}
+function apply(path,data){const p=path.split("/").filter(Boolean),nm=x=>({v:(x&&x.v)||"",r:(x&&x.r)||""});
+if(!p.length){reset();const a=(data&&data.att)||{};for(const k in a)if(st[k])st[k]=nm(a[k]);meta(data&&data.meta,true);all()}
+else if(p[0]=="att"){if(p.length==1){reset();for(const k in(data||{}))if(st[k])st[k]=nm(data[k]);all()}
+else{const k=p[1];if(!st[k])return;if(p.length==2)st[k]=nm(data);else st[k]={...st[k],[p[2]]:data||""};patchRow(k);tabs()}}
+else if(p[0]=="meta"){if(p.length==1)meta(data,true);else meta({[p[1]]:data})}}
+setSync(false);if(!live)setSync(true);
+if(live){const es=new EventSource(base+"/live.json");
+es.addEventListener("put",e=>{const d=JSON.parse(e.data);apply(d.path,d.data);setSync(true)});
+es.addEventListener("patch",e=>{const d=JSON.parse(e.data),b=d.path.replace(/\/$/,"");for(const k in d.data)apply(b+"/"+k,d.data[k]);setSync(true)});
+es.onerror=()=>setSync(false)}
 all();
 </script></body></html>
