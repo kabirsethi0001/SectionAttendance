@@ -39,6 +39,7 @@ button{touch-action:manipulation}
 .seg .A.on{background:var(--ab);color:var(--a);border-color:var(--a)}
 .seg .E.on{background:var(--eb);color:var(--e);border-color:var(--e)}
 .seg .L.on{background:var(--lb);color:var(--l);border-color:var(--l)}
+.ts{display:block;color:var(--mut);font-weight:400;font-size:11px}
 .rem{flex:1 1 100%;padding:8px!important;font-size:13px!important}
 .foot{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px))}
 .foot div{max-width:860px;margin:0 auto;display:flex;gap:8px;flex-wrap:wrap}
@@ -74,7 +75,9 @@ const LBL={P:"Present",A:"Absent",L:"Late",E:"Exception"};
 const FB="https://attendance-section-default-rtdb.asia-southeast1.firebasedatabase.app/"; // PASTE YOUR FIREBASE REALTIME DATABASE URL HERE (see setup steps)
 const base=FB.replace(/\/+$/,""),live=!!base;
 let cur=SECS[0],st={};
-const blank=()=>({v:"",r:""}),today=()=>new Date().toISOString().slice(0,10);
+const tsTxt=s=>s.v&&s.t?"Marked "+new Date(s.t).toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit",hour12:true}):"";
+const fmtFull=t=>new Date(t).toLocaleString("en-IN",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true});
+const blank=()=>({v:"",r:"",t:0}),today=()=>new Date().toISOString().slice(0,10);
 const reset=()=>SECS.forEach(s=>DATA[s].forEach((n,i)=>st[s+i]=blank()));
 reset();
 const $=id=>document.getElementById(id);
@@ -90,19 +93,19 @@ $("dlOne").textContent=`Download Section ${cur} only`}
 function list(){const q=$("q").value.trim().toLowerCase();
 const it=[];(q?SECS:[cur]).forEach(c=>DATA[c].forEach((n,i)=>{if(!q||n.toLowerCase().includes(q))it.push({c,n,i})}));
 $("list").innerHTML=it.map(({c,n,i})=>{const k=c+i,s=st[k];
-return `<div class="row"><div class="nm"><span>${q?"Sec "+c:i+1}</span>${n}</div><div class="seg">${["P","A","L","E"].map(x=>`<button class="${x} ${s.v==x?"on":""}" data-k="${k}" data-v="${x}">${LBL[x]}</button>`).join("")}</div>${s.v=="E"?`<input type="text" class="rem" data-k="${k}" placeholder="Reason for exception" value="${s.r.replace(/"/g,"&quot;")}">`:""}</div>`}).join("")||`<div class="row">No match.</div>`}
+return `<div class="row"><div class="nm"><span>${q?"Sec "+c:i+1}</span>${n}<small class="ts">${tsTxt(s)}</small></div><div class="seg">${["P","A","L","E"].map(x=>`<button class="${x} ${s.v==x?"on":""}" data-k="${k}" data-v="${x}">${LBL[x]}</button>`).join("")}</div>${s.v=="E"?`<input type="text" class="rem" data-k="${k}" placeholder="Reason for exception" value="${s.r.replace(/"/g,"&quot;")}">`:""}</div>`}).join("")||`<div class="row">No match.</div>`}
 function all(){tabs();list()}
 $("tabs").onclick=e=>{const b=e.target.closest(".tab");if(b){cur=b.dataset.s;all()}};
-$("list").onclick=e=>{const b=e.target.closest("button");if(!b)return;const k=b.dataset.k,s=st[k];s.v=s.v==b.dataset.v?"":b.dataset.v;if(s.v!="E")s.r="";patchRow(k);tabs();push(k)};
+$("list").onclick=e=>{const b=e.target.closest("button");if(!b)return;const k=b.dataset.k,s=st[k];s.v=s.v==b.dataset.v?"":b.dataset.v;if(s.v!="E")s.r="";s.t=s.v?Date.now():0;patchRow(k);tabs();push(k)};
 $("list").oninput=e=>{if(e.target.classList.contains("rem")){const k=e.target.dataset.k;st[k].r=e.target.value;clearTimeout(rt[k]);rt[k]=setTimeout(()=>live?send("att/"+k+"/r",st[k].r):save(),400)}};
 let qT;$("q").oninput=()=>{clearTimeout(qT);qT=setTimeout(list,120)};$("title").oninput=()=>metaOut("title");$("date").oninput=()=>metaOut("date");
-$("allP").onclick=()=>{const o={};DATA[cur].forEach((n,i)=>{if(!st[cur+i].v)o[cur+i]={v:"P",r:""}});setMany(o)};
+$("allP").onclick=()=>{const o={};DATA[cur].forEach((n,i)=>{if(!st[cur+i].v)o[cur+i]={v:"P",r:"",t:Date.now()}});setMany(o)};
 $("clr").onclick=()=>{if(confirm(`Clear all marks in Section ${cur}${live?" for everyone":""}?`)){const o={};DATA[cur].forEach((n,i)=>o[cur+i]=blank());setMany(o)}};
 $("newEv").onclick=()=>{if(confirm("Start a new event? This clears ALL marks in ALL sections"+(live?" for everyone":"")+". Download the current attendance first.")){reset();$("title").value="";$("date").value=today();all();if(live)send("",{meta:{title:"",date:today()}});else save()}};
 function sheet(s){const t=$("title").value||"",d=$("date").value||"";
-const rows=[["Student Name","Section","Event","Date","Attendance","Remark"]];
-DATA[s].forEach((n,i)=>{const x=st[s+i];rows.push([n,s,t,d,LBL[x.v]||"",x.r])});
-const ws=XLSX.utils.aoa_to_sheet(rows);ws["!cols"]=[{wch:28},{wch:8},{wch:28},{wch:12},{wch:12},{wch:30}];return ws}
+const rows=[["Student Name","Section","Event","Date","Attendance","Marked At","Remark"]];
+DATA[s].forEach((n,i)=>{const x=st[s+i];rows.push([n,s,t,d,LBL[x.v]||"",x.v&&x.t?fmtFull(x.t):"",x.r])});
+const ws=XLSX.utils.aoa_to_sheet(rows);ws["!cols"]=[{wch:28},{wch:8},{wch:28},{wch:12},{wch:12},{wch:22},{wch:30}];return ws}
 async function out(secs,name){
 const m=$("msg");m.textContent="Preparing file…";try{await loadX()}catch(e){m.textContent="Excel library failed to load. Check your connection and try again.";return}
 let dl=null;try{dl=(typeof claude!=="undefined")?await claude.use("downloads"):null}catch(e){}
@@ -112,7 +115,7 @@ if(secs.length>1){const sm=[["Section","Total","Present","Absent","Late","Except
 secs.forEach(s=>XLSX.utils.book_append_sheet(wb,sheet(s),"Section "+s));
 const buf=XLSX.write(wb,{type:"array",bookType:"xlsx"});
 const ev=($("title").value||"Attendance").replace(/[^\w\- ]+/g,"").trim().replace(/\s+/g,"_")||"Attendance";
-try{await dl.save({filename:`${ev}_${$("date").value}_${name}.xlsx`,data:buf});m.textContent="Saved."}
+try{await dl.save({filename:`${ev}_${$("date").value}${secs.length>1?"":"_"+name}.xlsx`,data:buf});m.textContent="Saved."}
 catch(e){m.textContent=e&&e.code=="declined"?"Download cancelled.":"Couldn’t save the file ("+(e&&e.code||"error")+")."}}
 $("dlAll").onclick=()=>out(SECS,"All_Sections");
 $("dlOne").onclick=()=>out([cur],"Section_"+cur);
@@ -124,11 +127,12 @@ function setMany(o){for(const k in o)st[k]=o[k];list();tabs();live?send("att",o,
 function metaOut(f){if(live){clearTimeout(rt["m"+f]);rt["m"+f]=setTimeout(()=>send("meta/"+f,$(f).value),400)}else save()}
 function patchRow(k){const b=$("list").querySelector(`button[data-k="${k}"]`);if(!b)return;const row=b.closest(".row"),s=st[k];
 row.querySelectorAll(".seg button").forEach(x=>x.classList.toggle("on",x.dataset.v==s.v));
+const ts=row.querySelector(".ts");if(ts)ts.textContent=tsTxt(s);
 let r=row.querySelector(".rem");
 if(s.v=="E"&&!r){r=document.createElement("input");r.type="text";r.className="rem";r.dataset.k=k;r.placeholder="Reason for exception";row.appendChild(r)}else if(s.v!="E"&&r)r.remove();
 if(r&&document.activeElement!==r)r.value=s.r}
 function meta(m,full){m=m||{};if(document.activeElement!==$("title")&&("title" in m||full))$("title").value=m.title||"";if(document.activeElement!==$("date")&&("date" in m||full))$("date").value=m.date||today()}
-function apply(path,data){const p=path.split("/").filter(Boolean),nm=x=>({v:(x&&x.v)||"",r:(x&&x.r)||""});
+function apply(path,data){const p=path.split("/").filter(Boolean),nm=x=>({v:(x&&x.v)||"",r:(x&&x.r)||"",t:(x&&x.t)||0});
 if(!p.length){reset();const a=(data&&data.att)||{};for(const k in a)if(st[k])st[k]=nm(a[k]);meta(data&&data.meta,true);all()}
 else if(p[0]=="att"){if(p.length==1){reset();for(const k in(data||{}))if(st[k])st[k]=nm(data[k]);all()}
 else{const k=p[1];if(!st[k])return;if(p.length==2)st[k]=nm(data);else st[k]={...st[k],[p[2]]:data||""};patchRow(k);tabs()}}
