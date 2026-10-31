@@ -36,13 +36,14 @@ select.in.on{background:var(--C);color:var(--bg);border-color:var(--C)}
 .x{flex:1 1 100%}.x .in{width:100%;max-width:300px}
 .chip{display:inline-block;padding:3px 9px;margin:4px 6px 0 0;border-radius:14px;background:var(--Cb);color:var(--C);font-size:13px}.chip a{cursor:pointer;margin-left:4px}
 textarea{width:100%;min-height:70px;font:13px monospace;background:var(--sf);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px}
+.ro #list{opacity:.6;pointer-events:none}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--tx);color:var(--bg);padding:8px 16px;border-radius:20px;display:none;z-index:20;max-width:90%}
 </style></head>
 <body><div class="wrap">
 <h1>Attendance Portal</h1><div class="mu" id="sub"></div>
 
 <div class="card"><div class="f"><input id="ttl" class="in" placeholder="Title, e.g. Leedsquare PPT" style="flex:1 1 240px;font-weight:600"><input id="date" type="date" class="in"></div>
-<div class="f" style="margin-top:10px"><select id="sel" class="in" title="Switch session"></select><button class="act alt" id="open">New session</button></div>
+<div class="f" style="margin-top:10px"><select id="sel" class="in" title="Switch session"></select><button class="act alt" id="open">New session</button><input id="me" class="in" placeholder="Your name (marked by)" style="flex:1 1 150px"></div>
 <div class="f" style="margin-top:10px"><input id="cin" class="in" placeholder="Add custom option (e.g. On duty)" style="flex:1 1 200px"><button class="act alt" id="cadd">Add option</button></div>
 <div id="chips"></div></div>
 
@@ -77,61 +78,71 @@ const D=[{"r":"IPM05016","s":"DY804","n":"Ashmeet Singh Chauhan","e":"ipm05ashme
 const SECS=['A','B','C','D','E'],NAME={P:'Present',A:'Absent',L:'Late',E:'Exemption',M:'Misconduct'};
 const $=s=>document.querySelector(s);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-let S={ses:{},cur:'',custom:[]},sec='All',q='';
-try{const j=localStorage.getItem('att-v1');if(j)S=Object.assign(S,JSON.parse(j))}catch(e){}
-const save=()=>{try{localStorage.setItem('att-v1',JSON.stringify(S))}catch(e){}};
+let S={ses:{},cur:'',custom:[]},sec='All',q='',DB=null,RO=false,ME='',STATUS='connecting…';
+const NOSES={date:'',label:'',m:{}};
+const save=()=>{if(DB)return;try{localStorage.setItem('att-v1',JSON.stringify(S))}catch(e){}};
 const p2=n=>String(n).padStart(2,'0');
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())};
 const nowT=()=>new Date().toTimeString().slice(0,8);
-const ses=()=>S.ses[S.cur];
+const ses=()=>S.ses[S.cur]||NOSES;
 const lab=m=>!m?'Not marked':m.s==='C'?(m.c||'Custom'):NAME[m.s];
-function openSes(date,label){const id='s'+Date.now();S.ses[id]={date,label,m:{}};S.cur=id;save();render()}
+const str=v=>typeof v==='string'?v:'';
+const wr=()=>{if(RO){toast('View only: ask the owner for Contributor access to mark attendance');return false}if(!S.cur){toast(DB?'No session yet: tap New session':'Still loading');return false}return true};
+const Q={},PEND={},WQ=[];let act=0;
+const slot=async()=>{if(act>=5)await new Promise(r=>WQ.push(r));act++};
+const free=()=>{act--;const n=WQ.shift();if(n)n()};
+const qw=(k,f)=>{Q[k]=(Q[k]||Promise.resolve()).then(f).catch(e=>{toast('Not saved: '+((e&&e.code)||'error'));if(e&&e.code==='invalid_argument'){RO=true;document.body.classList.add('ro')}})};
+function commit(r,val){const id=S.cur,m=S.ses[id].m;if(val)m[r]=val;else delete m[r];save();if(!DB)return;
+ const k=id+'/'+r,tk={val};PEND[k]=tk;
+ qw(k,async()=>{await slot();try{const v=PEND[k].val,ref=DB.doc('marks/'+id+'/items/'+r);if(v)await ref.set(Object.assign({},v,{by:ME,at:Date.now()}));else await ref.delete()}finally{free();if(PEND[k]===tk)delete PEND[k]}})}
+const putS=(id,now)=>{if(!DB)return;clearTimeout(putS.h);const go=()=>qw('ses/'+id,()=>{const s=S.ses[id];return DB.doc('sessions/'+id).set({date:s.date,label:s.label,created:s.created||Date.now()})});if(now)go();else putS.h=setTimeout(go,600)};
+function openSes(date,label){if(RO)return wr();const id='s'+Date.now();S.ses[id]={date,label,created:Date.now(),m:{}};S.cur=id;save();render();if(DB){subM();putS(id,true)}}
 function selOpts(){$('#sel').innerHTML=Object.entries(S.ses).sort((a,b)=>a[1].date.localeCompare(b[1].date)).map(([id,s])=>`<option value="${esc(id)}"${id===S.cur?' selected':''}>${esc(s.date)} · ${esc(s.label||'Untitled')}</option>`).join('')}
 function toast(t){const e=$('#t');e.textContent=t;e.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>e.style.display='none',2600)}
-function setM(r,s,c){const m=ses().m,o=m[r];
- if(o&&o.s===s&&(s!=='C'||o.c===c))delete m[r];
- else{const n={s};if(s==='L')n.t=nowT();if(s==='C')n.c=c;if(o&&o.n&&(s==='E'||s==='C'||s==='M'))n.n=o.n;m[r]=n}
- save();render()}
+function setM(r,s,c){if(!wr())return;const o=ses().m[r];
+ if(o&&o.s===s&&(s!=='C'||o.c===c))commit(r,null);
+ else{const n={s};if(s==='L')n.t=nowT();if(s==='C')n.c=c;if(o&&o.n&&(s==='E'||s==='C'||s==='M'))n.n=o.n;commit(r,n)}
+ render()}
 const inSec=()=>D.filter(d=>sec==='All'||d.c===sec);
 const view=()=>inSec().filter(d=>!q||(d.n+' '+d.r+' '+d.s+' '+d.e).toLowerCase().includes(q));
 function row(d){const m=ses().m[d.r],s=m&&m.s;
  const b=(k,t)=>`<button class="b ${k}${s===k?' on':''}" data-r="${d.r}" data-k="${k}">${t}</button>`;
  let x='';
- if(s==='L')x=`<input type="time" step="1" class="in" value="${m.t||''}" data-r="${d.r}" data-f="t" title="Late time stamp">`;
+ if(s==='L')x=`<input type="time" step="1" class="in" value="${esc(m.t||'')}" data-r="${d.r}" data-f="t" title="Late time stamp">`;
  if(s==='E'||s==='C'||s==='M')x=`<input class="in" placeholder="${s==='M'?'Misconduct details':'Reason / note'}" value="${esc(m.n||'')}" data-r="${d.r}" data-f="n">`;
  const cs=S.custom.length?`<select class="in${s==='C'?' on':''}" data-r="${d.r}" data-f="c"><option value="">Custom…</option>${S.custom.map(c=>`<option${m&&m.c===c?' selected':''}>${esc(c)}</option>`).join('')}</select>`:'';
- return `<div class="row"><div class="who"><b>${esc(d.n)}</b><small>${d.r} · SID ${d.s} · Sec ${d.c}<br>${esc(d.e)}</small></div><div class="btns">${b('P','Present')}${b('A','Absent')}${b('L','Late')}${b('E','Exempt')}${b('M','Misconduct')}${cs}</div><div class="x">${x}</div></div>`}
+ return `<div class="row"><div class="who"><b>${esc(d.n)}</b><small>${d.r} · SID ${d.s} · Sec ${d.c}<br>${esc(d.e)}${m&&m.by?'<br>marked by '+esc(m.by):''}</small></div><div class="btns">${b('P','Present')}${b('A','Absent')}${b('L','Late')}${b('E','Exempt')}${b('M','Misconduct')}${cs}</div><div class="x">${x}</div></div>`}
 function render(){
  const sc=inSec(),m=ses().m,cnt=k=>sc.filter(d=>m[d.r]&&m[d.r].s===k).length;
  $('#tabs').innerHTML=['All',...SECS].map(x=>`<button class="tab${x===sec?' on':''}" data-s="${x}">${x==='All'?'All':'Sec '+x} <small>${x==='All'?D.length:D.filter(d=>d.c===x).length}</small></button>`).join('');
  $('#stats').innerHTML=[['P','Present'],['A','Absent'],['L','Late'],['E','Exempt'],['M','Misconduct'],['C','Custom']].map(([k,t])=>`<span class="st ${k}"><b>${cnt(k)}</b> ${t}</span>`).join('')+`<span class="st"><b>${sc.filter(d=>!m[d.r]).length}</b> Not marked</span>`;
  const v=view();$('#list').innerHTML=v.length?v.map(row).join(''):'<p class="mu">No students match.</p>';
- selOpts();$('#date').value=ses().date;$('#ttl').value=ses().label;
+ selOpts();const ae=document.activeElement;if(ae!==$('#date'))$('#date').value=ses().date;if(ae!==$('#ttl'))$('#ttl').value=ses().label;
  $('#chips').innerHTML=S.custom.map((c,i)=>`<span class="chip">${esc(c)} <a data-i="${i}">×</a></span>`).join('');
  $('#sc').textContent=sec==='All'?'all sections':'Section '+sec;
  $('#cdl').innerHTML=customLabels().map((c,i)=>`<button class="act alt" data-cd="${i}">${esc(c)} sheet</button><button class="act alt" data-cm="${i}">${esc(c)} emails</button>`).join('');
- $('#sub').textContent=D.length+' students · marks save in this browser, so download the Excel when you finish';
+ $('#sub').textContent=D.length+' students · '+STATUS+(RO?' · view only':'');
 }
 $('#list').addEventListener('click',e=>{const b=e.target.closest('button[data-k]');if(b)setM(b.dataset.r,b.dataset.k)});
-$('#list').addEventListener('change',e=>{const t=e.target,r=t.dataset.r,f=t.dataset.f;if(!f)return;
- if(f==='c'){if(t.value)setM(r,'C',t.value);else{delete ses().m[r];save();render()}}
- else{const m=ses().m[r];if(m){m[f]=t.value;save()}}});
-$('#list').addEventListener('input',e=>{const t=e.target;if(t.dataset.f==='n'){const m=ses().m[t.dataset.r];if(m){m.n=t.value;save()}}});
+$('#list').addEventListener('change',e=>{const t=e.target,r=t.dataset.r,f=t.dataset.f;if(!f||!wr())return;
+ if(f==='c'){if(t.value)setM(r,'C',t.value);else{commit(r,null);render()}}
+ else{const m=ses().m[r];if(m)commit(r,Object.assign({},m,{[f]:t.value}))}});
+$('#list').addEventListener('input',e=>{const t=e.target;if(t.dataset.f==='n'){const m=ses().m[t.dataset.r];if(m)m.n=t.value}});
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-s]');if(b){sec=b.dataset.s;render()}});
 $('#q').addEventListener('input',e=>{q=e.target.value.trim().toLowerCase();render()});
-$('#sel').addEventListener('change',e=>{S.cur=e.target.value;save();render()});
-$('#ttl').addEventListener('input',e=>{ses().label=e.target.value;save();selOpts()});
-$('#date').addEventListener('change',e=>{if(e.target.value){ses().date=e.target.value;save();selOpts()}});
+$('#sel').addEventListener('change',e=>{S.cur=e.target.value;save();subM();render()});
+$('#ttl').addEventListener('input',e=>{if(!wr())return;ses().label=e.target.value;save();selOpts();putS(S.cur)});
+$('#date').addEventListener('change',e=>{if(e.target.value&&wr()){ses().date=e.target.value;save();selOpts();putS(S.cur)}});
 $('#open').onclick=()=>{openSes(today(),'');$('#ttl').focus()};
-$('#cadd').onclick=()=>{const v=$('#cin').value.trim();if(v&&!S.custom.includes(v)){S.custom.push(v);save();$('#cin').value='';render()}};
-$('#chips').addEventListener('click',e=>{const a=e.target.closest('a[data-i]');if(a){S.custom.splice(+a.dataset.i,1);save();render()}});
-const fillU=(s,t)=>{const m=ses().m;inSec().forEach(d=>{if(!m[d.r])m[d.r]={s}});save();render();toast('Unmarked students set to '+t)};
+$('#cadd').onclick=()=>{const v=$('#cin').value.trim();if(v&&!S.custom.includes(v)&&wr()){S.custom.push(v);save();putC();$('#cin').value='';render()}};
+$('#chips').addEventListener('click',e=>{const a=e.target.closest('a[data-i]');if(a&&wr()){S.custom.splice(+a.dataset.i,1);save();putC();render()}});
+const fillU=(s,t)=>{if(!wr())return;const m=ses().m,todo=inSec().filter(d=>!m[d.r]);if(!todo.length){toast('Nothing to fill');return}todo.forEach(d=>commit(d.r,{s}));render();toast(todo.length+' students set to '+t)};
 $('#allp').onclick=()=>fillU('P','Present');
 $('#alla').onclick=()=>fillU('A','Absent');
 /* exports */
-const H=['Roll No','SID','Name','Email ID','Section','Date','Title','Status','Time','Remark'];
-const rowsOf=l=>{const s=ses();return l.map(d=>{const m=s.m[d.r];return[d.r,d.s,d.n,d.e,d.c,s.date,s.label||'Untitled',lab(m),(m&&m.t)||'',(m&&m.n)||'']})};
-const sheet=l=>{const w=XLSX.utils.aoa_to_sheet([H,...rowsOf(l)]);w['!cols']=[12,8,28,34,8,12,14,14,10,24].map(wch=>({wch}));return w};
+const H=['Roll No','SID','Name','Email ID','Section','Date','Title','Status','Time','Remark','Marked by'];
+const rowsOf=l=>{const s=ses();return l.map(d=>{const m=s.m[d.r];return[d.r,d.s,d.n,d.e,d.c,s.date,s.label||'Untitled',lab(m),(m&&m.t)||'',(m&&m.n)||'',(m&&m.by)||'']})};
+const sheet=l=>{const w=XLSX.utils.aoa_to_sheet([H,...rowsOf(l)]);w['!cols']=[12,8,28,34,8,12,14,14,10,24,18].map(wch=>({wch}));return w};
 const ofS=(k,l)=>l.filter(d=>{const m=ses().m[d.r];return m&&m.s===k});
 const ofC=(c,l)=>l.filter(d=>{const m=ses().m[d.r];return m&&m.s==='C'&&m.c===c});
 const customLabels=()=>[...new Set([...S.custom,...Object.values(ses().m).filter(m=>m.s==='C'&&m.c).map(m=>m.c)])];
@@ -162,5 +173,51 @@ $('#dmis').onclick=()=>dl(one('Misconduct',ofS('M',inSec())),fname('Misconduct'+
 $('#cdl').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const cl=customLabels(),i=b.dataset.cd!==undefined?+b.dataset.cd:+b.dataset.cm,c=cl[i];if(c===undefined)return;
  if(b.dataset.cd!==undefined)dl(one(c,ofC(c,inSec())),fname(c+(sec==='All'?'':'_Sec'+sec)));else copyM(ofC(c,inSec()),c)});
 $('#mall').onclick=()=>copyM(view(),'listed');
-if(!ses())openSes(today(),'');else render();
+const putC=()=>{if(DB)qw('cfg',()=>DB.doc('config/custom').set({list:S.custom}))};
+let unM=null,mFor='',lt=0,dirty=false;
+const RS=new Set(D.map(d=>d.r)),OK=['P','A','L','E','M','C'];
+function softRender(){const a=document.activeElement;if(a&&a.closest&&a.closest('#list')&&/INPUT|SELECT/.test(a.tagName)){dirty=true;return}render()}
+document.addEventListener('focusout',e=>{if(dirty&&e.target.closest&&e.target.closest('#list')){dirty=false;setTimeout(render,0)}});
+function st(t){STATUS=t;$('#sub').textContent=D.length+' students · '+STATUS+(RO?' · view only':'')}
+function subM(){if(!DB||!S.cur||mFor===S.cur)return;if(unM)unM();const id=mFor=S.cur;
+ clearTimeout(lt);lt=setTimeout(()=>st('can’t reach live data yet, showing last known'),10000);
+ unM=DB.collection('marks/'+id+'/items').onSnapshot(snap=>{if(id!==S.cur||!S.ses[id])return;const m={};
+  snap.docs.forEach(d=>{const v=d.data()||{};if(RS.has(d.id)&&OK.includes(v.s)){const o={s:v.s};['t','n','c','by'].forEach(f=>{if(str(v[f]))o[f]=str(v[f])});m[d.id]=o}});
+  for(const k in PEND){const i=k.indexOf('/');if(k.slice(0,i)===id){const v=PEND[k].val,r=k.slice(i+1);if(v)m[r]=v;else delete m[r]}}
+  S.ses[id].m=m;if(!snap.metadata.fromCache){clearTimeout(lt);st('live: everyone’s changes appear instantly')}softRender()},
+  e=>st('live updates stopped ('+((e&&e.code)||'error')+'), reload to reconnect'))}
+const FB='https://attendance-section-default-rtdb.asia-southeast1.firebasedatabase.app';
+function fbDB(){const u=p=>FB+'/'+p+'.json';
+ const J=async(m,p,b)=>{const r=await fetch(u(p),{method:m,body:b===undefined?undefined:JSON.stringify(b)});if(!r.ok){const e=new Error('http '+r.status);e.code=(r.status===401||r.status===403)?'invalid_argument':'unavailable';throw e}return r.json()};
+ const watch=(p,on,err)=>{let es,cache=null;
+  const apply=(path,data)=>{if(path==='/'){cache=data;return}const g=path.split('/').filter(Boolean);if(cache===null||typeof cache!=='object')cache={};let o=cache;
+   for(let i=0;i<g.length-1;i++){if(o[g[i]]==null||typeof o[g[i]]!=='object')o[g[i]]={};o=o[g[i]]}
+   if(data===null)delete o[g[g.length-1]];else o[g[g.length-1]]=data};
+  es=new EventSource(u(p));
+  es.addEventListener('put',ev=>{const x=JSON.parse(ev.data);apply(x.path,x.data);on(cache)});
+  es.addEventListener('patch',ev=>{const x=JSON.parse(ev.data);for(const k in x.data)apply((x.path==='/'?'':x.path)+'/'+k,x.data[k]);on(cache)});
+  const bad=()=>{es.close();err&&err({code:'revoked'})};es.addEventListener('cancel',bad);es.addEventListener('auth_revoked',bad);
+  return()=>es.close()};
+ return{doc:p=>({set:d=>J('PUT',p,d),delete:()=>J('DELETE',p),onSnapshot:(n,e)=>watch(p,c=>n({exists:c!=null,data:()=>c,metadata:{fromCache:false}}),e)}),
+  collection:p=>({onSnapshot:(n,e)=>watch(p,c=>{const o=c&&typeof c==='object'?c:{},docs=Object.keys(o).map(k=>({id:k,data:()=>o[k]}));n({docs,size:docs.length,metadata:{fromCache:false}})},e)})}}
+async function connect(){
+ let db=null,user=null;try{if(window.claude){db=await claude.use('db');user=await claude.use('user')}}catch(e){}
+ if(!db&&FB)db=fbDB();
+ if(user){try{ME=(await user.me()).name||'';if((await user.can('data.write'))===false)RO=true}catch(e){}}
+ if(!ME){try{ME=localStorage.getItem('att-me')||''}catch(e){}}
+ $('#me').value=ME;
+ $('#me').addEventListener('input',e=>{ME=e.target.value.trim();try{localStorage.setItem('att-me',ME)}catch(x){}});
+ document.body.classList.toggle('ro',RO);
+ if(!db){try{const j=localStorage.getItem('att-v1');if(j)S=Object.assign(S,JSON.parse(j))}catch(e){}
+  STATUS='saved in this browser only, so download the Excel when you finish';if(!S.cur||!S.ses[S.cur])openSes(today(),'');else render();return}
+ DB=db;st('connecting…');render();
+ DB.doc('config/custom').onSnapshot(s=>{const l=s.exists?(s.data()||{}).list:[];S.custom=Array.isArray(l)?l.filter(x=>typeof x==='string'&&x).slice(0,40):[];softRender()},()=>{});
+ DB.collection('sessions').onSnapshot(snap=>{const ae=document.activeElement;
+  snap.docs.forEach(d=>{const v=d.data()||{},o=S.ses[d.id];
+   if(!o)S.ses[d.id]={date:str(v.date)||today(),label:str(v.label),created:+v.created||0,m:{}};
+   else if(!(ae===$('#ttl')&&d.id===S.cur)){o.date=str(v.date)||o.date;o.label=str(v.label);o.created=+v.created||o.created}});
+  if(!S.ses[S.cur]){const ids=Object.keys(S.ses).sort((a,b)=>S.ses[b].created-S.ses[a].created);S.cur=ids[0]||''}
+  if(!snap.metadata.fromCache&&!snap.size)st('no session yet: tap New session');
+  subM();softRender()},e=>st('live updates stopped ('+((e&&e.code)||'error')+')'))}
+render();connect();
 </script></body></html>
